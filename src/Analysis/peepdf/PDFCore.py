@@ -3,7 +3,7 @@
 #    http://peepdf.eternal-todo.com
 #    By Jose Miguel Esparza <jesparza AT eternal-todo.com>
 #
-#    Copyright (C) 2011-2014 Jose Miguel Esparza
+#    Copyright (C) 2011-2015 Jose Miguel Esparza
 #
 #    This file is part of peepdf.
 #
@@ -53,6 +53,7 @@ monitorizedElements = ['/EmbeddedFiles ',
                        '/U3D',
                        '/PRC',
                        '/RichMedia',
+                       '/Flash',
                        '.rawValue',
                        'keep.previous']
 jsVulns = ['mailto',
@@ -4711,7 +4712,7 @@ class PDFFile :
         compressedDict = {'/Type':PDFName('ObjStm'),'/N':PDFNum(str(numObjects)),'/First':PDFNum(firstObjectOffset),'/Length':PDFNum(str(len(compressedStream)))}
         try:
             objectStream = PDFObjectStream('',compressedStream,compressedDict,{},{})
-        except Exception,e:
+        except Exception as e:
             errorMessage = 'Error creating PDFObjectStream'
             if e.message != '':
                 errorMessage += ': '+e.message
@@ -4823,7 +4824,7 @@ class PDFFile :
         elementsDict['/Length'] = PDFNum(str(len(stream)))
         try:
             xrefStream = PDFStream('',stream,elementsDict,{})
-        except Exception,e:
+        except Exception as e:
             errorMessage = 'Error creating PDFStream'
             if e.message != '':
                 errorMessage += ': '+e.message
@@ -4841,7 +4842,7 @@ class PDFFile :
             self.addError(ret[1])
         try:
             trailerStream = PDFTrailer(PDFDictionary(elements=elementsTrailerDict))
-        except Exception,e:
+        except Exception as e:
             errorMessage = 'Error creating PDFTrailer'
             if e.message != '':
                 errorMessage += ': '+e.message
@@ -4850,7 +4851,7 @@ class PDFFile :
         trailerStream.setXrefStreamObject(xrefStreamId)
         try:
             trailerSection = PDFTrailer(PDFDictionary(elements=dict(elementsTrailerDict)))#PDFDictionary())
-        except Exception,e:
+        except Exception as e:
             errorMessage = 'Error creating PDFTrailer'
             if e.message != '':
                 errorMessage += ': '+e.message
@@ -6269,7 +6270,7 @@ class PDFFile :
             # JS stream (5)
             try:
                 jsStream = PDFStream(rawStream = content, elements = {'/Length':PDFNum(str(len(content)))})
-            except Exception,e:
+            except Exception as e:
                 errorMessage = 'Error creating PDFStream'
                 if e.message != '':
                     errorMessage += ': '+e.message
@@ -7070,7 +7071,7 @@ class PDFParser :
                 pdfObject = ret[1]
         try:
             pdfArray = PDFArray(rawContent, elements)
-        except Exception,e:
+        except Exception as e:
             errorMessage = 'Error creating PDFArray'
             if e.message != '':
                 errorMessage += ': '+e.message
@@ -7140,7 +7141,7 @@ class PDFParser :
                         return (-1, errorMessage)
         try:
             pdfDictionary = PDFDictionary(rawContent, elements, rawNames)
-        except Exception,e:
+        except Exception as e:
             errorMessage = 'Error creating PDFDictionary'
             if e.message != '':
                 errorMessage += ': '+e.message
@@ -7202,7 +7203,7 @@ class PDFParser :
         if elements.has_key('/Type') and elements['/Type'].getValue() == '/ObjStm':
             try:
                 pdfStream = PDFObjectStream(dict, stream, elements, rawNames, {})
-            except Exception,e:
+            except Exception as e:
                 errorMessage = 'Error creating PDFObjectStream'
                 if e.message != '':
                     errorMessage += ': '+e.message
@@ -7210,7 +7211,7 @@ class PDFParser :
         else:
             try:
                 pdfStream = PDFStream(dict, stream, elements, rawNames)
-            except Exception,e:
+            except Exception as e:
                 errorMessage = 'Error creating PDFStream'
                 if e.message != '':
                     errorMessage += ': '+e.message
@@ -7225,8 +7226,8 @@ class PDFParser :
             @param offset Offset of the cross reference section in the PDF file (int)
             @return A tuple (status,statusContent), where statusContent is the PDFCrossRefSection in case status = 0 or an error in case status = -1
         '''
-        global isForceMode,pdfFile
-        if not isinstance(rawContent,str):
+        global isForceMode, pdfFile
+        if not isinstance(rawContent, str):
             return (-1,'Empty xref content')
         entries = []
         auxOffset = 0
@@ -7251,7 +7252,7 @@ class PDFParser :
                 return (-1,'Error: No entries in xref section!!')
         else:
             for line in lines:
-                match = re.findall(beginSubSectionRE,line)
+                match = re.findall(beginSubSectionRE, line)
                 if match != []:
                     if pdfCrossRefSubSection != None:        
                         pdfCrossRefSubSection.setSize(subSectionSize)
@@ -7260,14 +7261,14 @@ class PDFParser :
                         subSectionSize = 0
                         entries = []
                     try:
-                        pdfCrossRefSubSection = PDFCrossRefSubSection(match[0][0],match[0][1],offset = auxOffset)
+                        pdfCrossRefSubSection = PDFCrossRefSubSection(match[0][0], match[0][1], offset=auxOffset)
                     except:
                         return (-1,'Error creating PDFCrossRefSubSection')
                 else:
                     match = re.findall(entryRE,line)
                     if match != []:
                         try:
-                            pdfCrossRefEntry = PDFCrossRefEntry(match[0][0],match[0][1],match[0][2], offset = auxOffset)
+                            pdfCrossRefEntry = PDFCrossRefEntry(match[0][0], match[0][1], match[0][2], offset=auxOffset)
                         except:
                             return (-1,'Error creating PDFCrossRefEntry')
                         entries.append(pdfCrossRefEntry)
@@ -7277,12 +7278,19 @@ class PDFParser :
                             if pdfCrossRefSubSection != None:
                                 pdfCrossRefSubSection.addError('Bad format for cross reference entry: '+line)
                             else:
-                                pdfCrossRefSubSection = PDFCrossRefSubSection(0, offset = -1)
+                                pdfCrossRefSubSection = PDFCrossRefSubSection(0, offset=-1)
                                 pdfFile.addError('Bad xref section')
                         else:
                             return (-1,'Bad format for cross reference entry')
                 auxOffset += len(line)
                 subSectionSize += len(line)
+            else:
+                if not pdfCrossRefSubSection:
+                    if isForceMode:
+                        pdfCrossRefSubSection = PDFCrossRefSubSection(0, len(entries), offset=auxOffset)
+                        pdfFile.addError('Missing xref section header')
+                    else:
+                        return (-1, 'Missing xref section header')
         pdfCrossRefSubSection.setSize(subSectionSize)
         pdfCrossRefSection.addSubsection(pdfCrossRefSubSection)
         pdfCrossRefSubSection.setEntries(entries)
@@ -7448,7 +7456,7 @@ class PDFParser :
         if ret[0] == -1:
             try:
                 trailer = PDFTrailer(dict, streamPresent = streamPresent)
-            except Exception,e:
+            except Exception as e:
                 errorMessage = 'Error creating PDFTrailer'
                 if e.message != '':
                     errorMessage += ': '+e.message
@@ -7465,7 +7473,7 @@ class PDFParser :
                 lastXrefSection = ret[1]
             try:
                 trailer = PDFTrailer(dict, lastXrefSection, streamPresent = streamPresent)
-            except Exception,e:
+            except Exception as e:
                 errorMessage = 'Error creating PDFTrailer'
                 if e.message != '':
                     errorMessage += ': '+e.message
@@ -7499,7 +7507,7 @@ class PDFParser :
                         dict[element] = xrefStreamObject.getElementByName(element)
                 try:
                     dict = PDFDictionary('',dict)
-                except Exception,e:
+                except Exception as e:
                     if isForceMode:
                         dict = None
                     else:
@@ -7528,7 +7536,7 @@ class PDFParser :
                         lastXrefSection = ret[1]
                 try:
                     trailer = PDFTrailer(dict, lastXrefSection)
-                except Exception,e:
+                except Exception as e:
                     errorMessage = 'Error creating PDFTrailer'
                     if e.message != '':
                         errorMessage += ': '+e.message

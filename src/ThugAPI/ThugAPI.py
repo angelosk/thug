@@ -19,6 +19,8 @@
 import sys
 import os
 import logging
+import PyV8
+
 from zope.interface import implements
 
 try:
@@ -47,16 +49,19 @@ from Classifier import URLClassifier
 from Classifier import SampleClassifier
 
 log = logging.getLogger("Thug")
+log.setLevel(logging.WARN)
 
-__thug_version__ = '0.6.3'
+__thug_version__ = '0.6.5'
 
 
 class ThugAPI:
     implements(IThugAPI)
 
-    def __init__(self, args):
+    def __init__(self, args, configuration_path = None):
         self.args               = args
         self.thug_version       = __thug_version__
+        log.configuration_path  = configuration_path
+        log.personalities_path  = os.path.join(configuration_path, "personalities") if configuration_path else None
         log.ThugOpts            = ThugOpts()
         log.ThugVulnModules     = ThugVulnModules()
         log.WebTracking         = WebTracking.WebTracking()
@@ -112,6 +117,13 @@ class ThugAPI:
 
     def set_maec11_logging(self):
         log.ThugOpts.maec11_logging = True
+
+    def get_elasticsearch_logging(self):
+        return log.ThugOpts.elasticsearch_logging
+
+    def set_elasticsearch_logging(self):
+        log.ThugOpts.elasticsearch_logging = True
+        logging.getLogger("elasticsearch").setLevel(logging.ERROR)
 
     def get_referer(self):
         return log.ThugOpts.referer
@@ -242,8 +254,9 @@ class ThugAPI:
         log.ThugLogging.log_event()
 
     def run(self, window):
-        dft = DFT.DFT(window)
-        dft.run()
+        with PyV8.JSLocker():
+            dft = DFT.DFT(window)
+            dft.run()
 
     def run_local(self, url):
         log.ThugLogging.set_url(url)

@@ -17,7 +17,6 @@
 # MA  02111-1307  USA
 
 
-import PyV8
 import os
 import hashlib
 import logging
@@ -30,6 +29,7 @@ try:
 except ImportError:
     import urlparse
 
+from .JSClass import JSClass
 from .MimeTypes import MimeTypes
 from .Plugins import Plugins
 from .UserProfile import UserProfile
@@ -38,13 +38,13 @@ from .HTTPSession import AboutBlank, FetchForbidden
 log = logging.getLogger("Thug")
 
 
-class Navigator(PyV8.JSClass):
+class Navigator(JSClass):
     def __init__(self, personality, window = None):
         self.personality = log.ThugOpts.Personality[personality]
         self._plugins    = Plugins()  # An array of the plugins installed in the browser
         self._mimeTypes  = MimeTypes()
         self._window     = window
-   
+
         for p in self._mimeTypes.values():
             self._plugins.append(p['enabledPlugin'])
 
@@ -229,7 +229,7 @@ class Navigator(PyV8.JSClass):
         """
         return self.personality['vendor']
 
-    @property 
+    @property
     def _vendorSub(self):
         """
             The vendor name of the current browser (e.g. "Netscape6")
@@ -343,13 +343,21 @@ class Navigator(PyV8.JSClass):
         sha256.update(response.content)
 
         try:
-            mtype = magic.from_buffer(response.content)
+            # This works with python-magic >= 0.4.6 from pypi
+            mtype = magic.from_buffer(response.content, mime = True)
         except:
-            # Ubuntu workaround
-            # There is an old pymagic version in Ubuntu
-            ms = magic.open(magic.MAGIC_NONE)
-            ms.load()
-            mtype = ms.buffer(response.content)
+            try:
+                # Ubuntu workaround
+                # This works with python-magic >= 5.22 from Ubuntu (apt)
+                ms = magic.open(magic.MAGIC_MIME)
+                ms.load()
+                mtype = ms.buffer(response.content).split(';')[0]
+            except:
+                # Filemagic workaround
+                # This works with filemagic >= 1.6 from pypi
+                with magic.Magic(flags = magic.MAGIC_MIME_TYPE) as m:
+                    mtype = m.id_buffer(response.content)
+
 
         data = {
             "content" : response.content,

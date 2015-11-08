@@ -25,7 +25,11 @@ import datetime
 import os
 import json
 import codecs
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 from .Mapper import Mapper
 from .compatibility import *
 
@@ -33,7 +37,7 @@ log = logging.getLogger("Thug")
 
 
 class JSON(object):
-    def __init__(self, thug_version):
+    def __init__(self, thug_version, provider = False):
         self._tools = ({
                         'id'          : 'json-log',
                         'Name'        : 'Thug',
@@ -46,6 +50,7 @@ class JSON(object):
         self.object_pool     = None
         self.signatures      = list()
         self.cached_data     = None
+        self.provider        = provider
 
         self.data = {
                         "url"         : None,
@@ -83,7 +88,7 @@ class JSON(object):
 
     @property
     def json_enabled(self):
-        return log.ThugOpts.json_logging or 'json' in log.ThugLogging.formats
+        return log.ThugOpts.json_logging or 'json' in log.ThugLogging.formats or self.provider
 
     def get_vuln_module(self, module):
         disabled = getattr(log.ThugVulnModules, "%s_disabled" % (module, ), True)
